@@ -307,6 +307,9 @@ const questions = {
     ]
 };
 
+let questionTimer = null;
+let timeLeft = 30;
+
 function initModal() {
     const rulesButton = document.getElementById("rules");
     const rulesModal = document.getElementById("rules-mod");
@@ -385,6 +388,7 @@ function startQuiz(category) {
         score: 0 
     }));
     
+    addBackToMenuButton();
     displayQuestion();
 }
 
@@ -397,6 +401,8 @@ function displayQuestion() {
         area.removeChild(area.firstChild);
     }
 
+    addBackToMenuButton();
+
     const questionElement = document.createElement('div');
     questionElement.className = 'question-container';
 
@@ -404,12 +410,12 @@ function displayQuestion() {
     categoryHeader.className = 'question-category';
     categoryHeader.textContent = quizData.category;
     questionElement.appendChild(categoryHeader);
-    
+
     const questionText = document.createElement('div');
     questionText.className = 'question-text';
     questionText.textContent = currentQuestionData.question;
     questionElement.appendChild(questionText);
-    
+
     const progressText = document.createElement('div');
     progressText.className = 'question-progress';
     progressText.textContent = `Вопрос ${quizData.currentQuestion + 1} из ${quizData.questions.length}`;
@@ -423,15 +429,12 @@ function displayQuestion() {
     nextButtonContainer.className = 'next-button-container';
     questionElement.appendChild(nextButtonContainer);
 
-    const shuffledAnswers = [...currentQuestionData.answers]
-        .map((value, index) => ({ value, index }))
-        .sort(() => Math.random() - 0.5);
-
     const nextButton = document.createElement('button');
     nextButton.className = 'next-button';
     nextButton.textContent = 'Следующий вопрос →';
     nextButton.style.display = 'none';
     nextButton.addEventListener('click', () => {
+        clearInterval(questionTimer);
         quizData.currentQuestion++;
         localStorage.setItem('currentQuiz', JSON.stringify(quizData));
         
@@ -441,16 +444,30 @@ function displayQuestion() {
             endQuiz();
         }
     });
-
     nextButtonContainer.appendChild(nextButton);
 
-    shuffledAnswers.forEach((answer) => {
+    const answersToDisplay = currentQuestionData.answers
+        .map((answer, index) => ({
+            text: answer,
+            originalIndex: index
+        }))
+        .sort(() => Math.random() - 0.5)
+        .slice(0, 4); 
+
+    clearInterval(questionTimer);
+
+    answersToDisplay.forEach(answer => {
         const answerButton = document.createElement('button');
         answerButton.className = 'answer-button';
-        answerButton.textContent = answer.value;
-        answerButton.dataset.correct = answer.index === currentQuestionData.correct;
+        
+        const answerText = document.createElement('span');
+        answerText.textContent = answer.text;
+        answerButton.appendChild(answerText);
+        
+        answerButton.dataset.correct = answer.originalIndex === currentQuestionData.correct;
         
         answerButton.addEventListener('click', function() {
+            clearInterval(questionTimer);
             const allButtons = answersContainer.querySelectorAll('.answer-button');
             allButtons.forEach(btn => {
                 btn.disabled = true;
@@ -463,7 +480,6 @@ function displayQuestion() {
             correctButton.classList.add('correct-answer');
 
             if (this.dataset.correct === 'true') {
-                const quizData = JSON.parse(localStorage.getItem('currentQuiz'));
                 quizData.score++;
                 localStorage.setItem('currentQuiz', JSON.stringify(quizData));
             }
@@ -474,6 +490,7 @@ function displayQuestion() {
         answersContainer.appendChild(answerButton);
     });
     
+    startTimer(answersContainer, nextButton, quizData);
     area.appendChild(questionElement);
 }
 
@@ -513,6 +530,7 @@ function endQuiz() {
 }
 
 function resetToMainMenu() {
+    clearInterval(questionTimer);
     const area = document.getElementById("area");
     
     while (area.firstChild) {
@@ -575,6 +593,73 @@ function resetToMainMenu() {
     
     initModal();
     initGameStart();
+}
+
+function addBackToMenuButton() {
+    const area = document.getElementById("area");
+    const oldButton = document.querySelector('.back-to-menu-button');
+    if (oldButton) {
+        oldButton.remove();
+    }
+
+    const backButton = document.createElement('button');
+    backButton.className = 'back-to-menu-button';
+    backButton.innerHTML = '← На главную';
+    backButton.addEventListener('click', resetToMainMenu);
+    area.insertBefore(backButton, area.firstChild);
+}
+
+function startTimer(answersContainer, nextButton, quizData) {
+    clearInterval(questionTimer);
+
+    const timerContainer = document.createElement('div');
+    timerContainer.className = 'timer-container';
+    answersContainer.after(timerContainer);
+    
+    timeLeft = 30;
+    updateTimerDisplay(timerContainer);
+
+    questionTimer = setInterval(() => {
+        timeLeft--;
+        updateTimerDisplay(timerContainer);
+        
+        if (timeLeft <= 0) {
+            clearInterval(questionTimer);
+            handleTimeExpired(answersContainer, nextButton, quizData);
+        }
+    }, 1000);
+}
+
+function updateTimerDisplay(timerContainer) {
+    timerContainer.textContent = `Осталось ${timeLeft} секунд`;
+    if (timeLeft <= 10) {
+        timerContainer.classList.add('timer-warning');
+    } else {
+        timerContainer.classList.remove('timer-warning');
+    }
+}
+
+function handleTimeExpired(answersContainer, nextButton, quizData) {
+    const allButtons = answersContainer.querySelectorAll('.answer-button');
+    allButtons.forEach(btn => {
+        btn.disabled = true;
+        if (btn.dataset.correct === 'false') {
+            btn.classList.add('incorrect-answer');
+        }
+    });
+
+    const correctButton = answersContainer.querySelector('[data-correct="true"]');
+    correctButton.classList.add('correct-answer');
+
+    if (nextButton) {
+        nextButton.style.display = 'block';
+    }
+
+    const timerContainer = document.querySelector('.timer-container');
+    if (timerContainer) {
+        timerContainer.textContent = 'Время вышло!';
+        timerContainer.classList.add('timer-warning');
+    }
 }
 
 window.onload = function() {
