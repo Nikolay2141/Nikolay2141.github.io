@@ -662,7 +662,70 @@ function handleTimeExpired(answersContainer, nextButton, quizData) {
     }
 }
 
+function initThemeToggle() {
+    const themeToggle = document.getElementById('theme-toggle');
+    const prefersDarkScheme = window.matchMedia('(prefers-color-scheme: dark)');
+
+    let currentTheme = localStorage.getItem('theme') || 
+                      (prefersDarkScheme.matches ? 'dark' : 'light');
+    document.documentElement.className = currentTheme + '-theme';
+    
+    themeToggle.addEventListener('click', () => {
+        const isDark = document.documentElement.classList.contains('dark-theme');
+        const newTheme = isDark ? 'light' : 'dark';
+
+        document.documentElement.classList.remove(isDark ? 'dark-theme' : 'light-theme');
+        document.documentElement.classList.add(newTheme + '-theme');
+
+        localStorage.setItem('theme', newTheme);
+
+        themeToggle.textContent = newTheme === 'dark' ? '🌓' : '🌒';
+    });
+
+    themeToggle.textContent = currentTheme === 'dark' ? '🌓' : '🌒';
+
+
+    prefersDarkScheme.addEventListener('change', e => {
+        if (!localStorage.getItem('theme')) {
+            const newTheme = e.matches ? 'dark' : 'light';
+            document.body.className = `${newTheme}-theme`;
+            updateThemeToggleIcon(newTheme);
+        }
+    });
+}
+
+function updateThemeToggleIcon(theme) {
+    const themeToggle = document.getElementById('theme-toggle');
+    themeToggle.textContent = theme === 'dark' ? '🌓' : '🌒';
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    const clock = new FlipClock($('.flip-clock-container'), 30, {
+        clockFace: 'MinuteCounter',
+        countdown: true,
+        autoStart: false,
+        callbacks: {
+            stop: function() {
+            }
+        }
+    });
+
+    window.startTimer = function() {
+        clock.start();
+    };
+
+    window.stopTimer = function() {
+        clock.stop();
+    };
+
+    window.resetTimer = function(seconds = 30) {
+        clock.setTime(seconds);
+        clock.stop();
+    };
+});
+
 window.onload = function() {
     initModal();
     initGameStart();
+    initThemeToggle();
 };
