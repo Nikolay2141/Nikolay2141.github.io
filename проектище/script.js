@@ -307,8 +307,7 @@ const questions = {
     ]
 };
 
-let questionTimer = null;
-let timeLeft = 30;
+let clock;
 
 function initModal() {
     const rulesButton = document.getElementById("rules");
@@ -339,7 +338,7 @@ function initGameStart() {
     const categoriesContainer = document.createElement('div');
     categoriesContainer.className = 'categories-container';
     categoriesContainer.style.display = 'none';
-    
+
     const categoryNames = ["Линейная алгебра", "Мат. анализ", "Python"];
 
     categoryNames.forEach(name => {
@@ -350,16 +349,11 @@ function initGameStart() {
         categoriesContainer.appendChild(categoryBtn);
     });
 
-    const backButtonWrapper = document.createElement('div');
-    backButtonWrapper.className = 'back-button-wrapper';
     const backButton = document.createElement('button');
     backButton.className = 'button back-button';
-    
-    const backButtonText = document.createTextNode('← Назад');
-    backButton.appendChild(backButtonText);
-    backButtonWrapper.appendChild(backButton);
-    categoriesContainer.appendChild(backButtonWrapper);
-    
+    backButton.textContent = '← Назад';
+    categoriesContainer.appendChild(backButton);
+
     buttonContainer.parentNode.insertBefore(categoriesContainer, buttonContainer.nextSibling);
 
     startButton.addEventListener('click', () => {
@@ -378,7 +372,7 @@ function startQuiz(category) {
     while (area.firstChild) {
         area.removeChild(area.firstChild);
     }
-    
+
     const categoryQuestions = [...questions[category]].sort(() => Math.random() - 0.5);
 
     localStorage.setItem('currentQuiz', JSON.stringify({
@@ -387,7 +381,7 @@ function startQuiz(category) {
         currentQuestion: 0,
         score: 0 
     }));
-    
+
     addBackToMenuButton();
     displayQuestion();
 }
@@ -421,30 +415,53 @@ function displayQuestion() {
     progressText.textContent = `Вопрос ${quizData.currentQuestion + 1} из ${quizData.questions.length}`;
     questionElement.appendChild(progressText);
 
+    const timerContainer = document.createElement('div');
+    timerContainer.className = 'flip-clock-container';
+    questionElement.appendChild(timerContainer);
+
+    if (window.clock) {
+        window.clock.stop();
+        timerContainer.innerHTML = '';
+    }
+
     const answersContainer = document.createElement('div');
     answersContainer.className = 'answers-container';
     questionElement.appendChild(answersContainer);
-
-    const nextButtonContainer = document.createElement('div');
-    nextButtonContainer.className = 'next-button-container';
-    questionElement.appendChild(nextButtonContainer);
 
     const nextButton = document.createElement('button');
     nextButton.className = 'next-button';
     nextButton.textContent = 'Следующий вопрос →';
     nextButton.style.display = 'none';
+    questionElement.appendChild(nextButton);
+
+    window.clock = new FlipClock(timerContainer, 30, {
+        clockFace: 'Counter',
+        countdown: true,
+        autoStart: true,
+        minimumDigits: 2,
+        callbacks: {
+            stop: function() {
+                window.clockStopped = true;
+                handleTimeExpired(answersContainer, nextButton, quizData);
+            }
+        }
+    });
+    window.clockStopped = false;
+
     nextButton.addEventListener('click', () => {
-        clearInterval(questionTimer);
+        if (window.clock) {
+            window.clock.stop();
+            window.clockStopped = false;
+        }
         quizData.currentQuestion++;
         localStorage.setItem('currentQuiz', JSON.stringify(quizData));
-        
+    
         if (quizData.currentQuestion < quizData.questions.length) {
             displayQuestion();
         } else {
             endQuiz();
         }
     });
-    nextButtonContainer.appendChild(nextButton);
 
     const answersToDisplay = currentQuestionData.answers
         .map((answer, index) => ({
@@ -452,63 +469,58 @@ function displayQuestion() {
             originalIndex: index
         }))
         .sort(() => Math.random() - 0.5)
-        .slice(0, 4); 
-
-    clearInterval(questionTimer);
+        .slice(0, 4);
 
     answersToDisplay.forEach(answer => {
         const answerButton = document.createElement('button');
         answerButton.className = 'answer-button';
-        
-        const answerText = document.createElement('span');
-        answerText.textContent = answer.text;
-        answerButton.appendChild(answerText);
-        
+        answerButton.textContent = answer.text;
         answerButton.dataset.correct = answer.originalIndex === currentQuestionData.correct;
-        
+    
         answerButton.addEventListener('click', function() {
-            clearInterval(questionTimer);
-            const allButtons = answersContainer.querySelectorAll('.answer-button');
-            allButtons.forEach(btn => {
-                btn.disabled = true;
-                if (btn.dataset.correct === 'false') {
-                    btn.classList.add('incorrect-answer');
+            if (window.clock && !window.clockStopped) {
+                window.clockStopped = true;
+                window.clock.stop();
+                const allButtons = answersContainer.querySelectorAll('.answer-button');
+                allButtons.forEach(btn => {
+                    btn.disabled = true;
+                    if (btn.dataset.correct === 'false') {
+                        btn.classList.add('incorrect-answer');
+                    }
+                });
+                const correctButton = answersContainer.querySelector('[data-correct="true"]');
+                correctButton.classList.add('correct-answer');
+
+                if (this.dataset.correct === 'true') {
+                    quizData.score++;
+                    localStorage.setItem('currentQuiz', JSON.stringify(quizData));
                 }
-            });
 
-            const correctButton = answersContainer.querySelector('[data-correct="true"]');
-            correctButton.classList.add('correct-answer');
-
-            if (this.dataset.correct === 'true') {
-                quizData.score++;
-                localStorage.setItem('currentQuiz', JSON.stringify(quizData));
+                nextButton.style.display = 'block';
             }
-
-            nextButton.style.display = 'block';
         });
         
         answersContainer.appendChild(answerButton);
     });
-    
-    startTimer(answersContainer, nextButton, quizData);
+
     area.appendChild(questionElement);
 }
 
 function endQuiz() {
     const quizData = JSON.parse(localStorage.getItem('currentQuiz'));
     const area = document.getElementById("area");
-    
+
     while (area.firstChild) {
         area.removeChild(area.firstChild);
     }
-    
+
     const resultContainer = document.createElement('div');
     resultContainer.className = 'result-container';
-    
+
     const resultHeader = document.createElement('h2');
     resultHeader.textContent = 'Викторина завершена!';
     resultContainer.appendChild(resultHeader);
-    
+
     const resultScore = document.createElement('div');
     resultScore.className = 'result-score';
     resultScore.textContent = `Ваш результат: ${quizData.score} из ${quizData.questions.length}`;
@@ -525,72 +537,72 @@ function endQuiz() {
     mainMenuButton.textContent = 'Главное меню';
     mainMenuButton.addEventListener('click', resetToMainMenu);
     resultContainer.appendChild(mainMenuButton);
-    
+
     area.appendChild(resultContainer);
 }
 
 function resetToMainMenu() {
-    clearInterval(questionTimer);
+    if (window.clock) window.clock.stop();
     const area = document.getElementById("area");
-    
+
     while (area.firstChild) {
         area.removeChild(area.firstChild);
     }
-    
+
     const title = document.createElement('h1');
     title.className = 'game-title';
     title.textContent = 'Викторина';
     area.appendChild(title);
-    
+
     const divider = document.createElement('div');
     divider.className = 'divider';
-    
+
     const line1 = document.createElement('div');
     line1.className = 'divider-line';
     divider.appendChild(line1);
-    
+
     const icon = document.createElement('div');
     icon.className = 'divider-icon';
     icon.textContent = '✻';
     divider.appendChild(icon);
-    
+
     const line2 = document.createElement('div');
     line2.className = 'divider-line';
     divider.appendChild(line2);
-    
+
     area.appendChild(divider);
-    
+
     const buttonContainer = document.createElement('div');
     buttonContainer.className = 'button-container';
-    
+
     const startButton = document.createElement('button');
     startButton.id = 'start';
     startButton.className = 'button';
-    
+
     const startIcon = document.createElement('span');
     startIcon.className = 'icon';
     startIcon.textContent = '▶';
     startButton.appendChild(startIcon);
-    
+
     const startText = document.createTextNode(' Начать игру');
     startButton.appendChild(startText);
     buttonContainer.appendChild(startButton);
-    
+
     const rulesButton = document.createElement('button');
     rulesButton.id = 'rules';
     rulesButton.className = 'button';
-    
+
     const rulesIcon = document.createElement('span');
     rulesIcon.className = 'icon';
     rulesIcon.textContent = '?';
     rulesButton.appendChild(rulesIcon);
-    
+
     const rulesText = document.createTextNode(' Правила');
     rulesButton.appendChild(rulesText);
     buttonContainer.appendChild(rulesButton);
-    
+
     area.appendChild(buttonContainer);
-    
+
     initModal();
     initGameStart();
 }
@@ -604,61 +616,32 @@ function addBackToMenuButton() {
 
     const backButton = document.createElement('button');
     backButton.className = 'back-to-menu-button';
-    backButton.innerHTML = '← На главную';
+    backButton.textContent = '← На главную';
     backButton.addEventListener('click', resetToMainMenu);
     area.insertBefore(backButton, area.firstChild);
 }
 
-function startTimer(answersContainer, nextButton, quizData) {
-    clearInterval(questionTimer);
-
-    const timerContainer = document.createElement('div');
-    timerContainer.className = 'timer-container';
-    answersContainer.after(timerContainer);
-    
-    timeLeft = 30;
-    updateTimerDisplay(timerContainer);
-
-    questionTimer = setInterval(() => {
-        timeLeft--;
-        updateTimerDisplay(timerContainer);
-        
-        if (timeLeft <= 0) {
-            clearInterval(questionTimer);
-            handleTimeExpired(answersContainer, nextButton, quizData);
-        }
-    }, 1000);
-}
-
-function updateTimerDisplay(timerContainer) {
-    timerContainer.textContent = `Осталось ${timeLeft} секунд`;
-    if (timeLeft <= 10) {
-        timerContainer.classList.add('timer-warning');
-    } else {
-        timerContainer.classList.remove('timer-warning');
-    }
-}
-
 function handleTimeExpired(answersContainer, nextButton, quizData) {
-    const allButtons = answersContainer.querySelectorAll('.answer-button');
-    allButtons.forEach(btn => {
-        btn.disabled = true;
-        if (btn.dataset.correct === 'false') {
-            btn.classList.add('incorrect-answer');
+    if (window.clock && !window.clockStopped) {
+        window.clockStopped = true;
+        window.clock.stop();
+        
+        const allButtons = answersContainer.querySelectorAll('.answer-button');
+        allButtons.forEach(btn => {
+            btn.disabled = true;
+            if (btn.dataset.correct === 'false') {
+                btn.classList.add('incorrect-answer');
+            }
+        });
+
+        const correctButton = answersContainer.querySelector('[data-correct="true"]');
+        if (correctButton) {
+            correctButton.classList.add('correct-answer');
         }
-    });
 
-    const correctButton = answersContainer.querySelector('[data-correct="true"]');
-    correctButton.classList.add('correct-answer');
-
-    if (nextButton) {
-        nextButton.style.display = 'block';
-    }
-
-    const timerContainer = document.querySelector('.timer-container');
-    if (timerContainer) {
-        timerContainer.textContent = 'Время вышло!';
-        timerContainer.classList.add('timer-warning');
+        if (nextButton) {
+            nextButton.style.display = 'block';
+        }
     }
 }
 
@@ -669,7 +652,7 @@ function initThemeToggle() {
     let currentTheme = localStorage.getItem('theme') || 
                       (prefersDarkScheme.matches ? 'dark' : 'light');
     document.documentElement.className = currentTheme + '-theme';
-    
+
     themeToggle.addEventListener('click', () => {
         const isDark = document.documentElement.classList.contains('dark-theme');
         const newTheme = isDark ? 'light' : 'dark';
@@ -684,45 +667,14 @@ function initThemeToggle() {
 
     themeToggle.textContent = currentTheme === 'dark' ? '🌓' : '🌒';
 
-
     prefersDarkScheme.addEventListener('change', e => {
         if (!localStorage.getItem('theme')) {
             const newTheme = e.matches ? 'dark' : 'light';
-            document.body.className = `${newTheme}-theme`;
-            updateThemeToggleIcon(newTheme);
+            document.documentElement.className = newTheme + '-theme';
+            themeToggle.textContent = newTheme === 'dark' ? '🌓' : '🌒';
         }
     });
 }
-
-function updateThemeToggleIcon(theme) {
-    const themeToggle = document.getElementById('theme-toggle');
-    themeToggle.textContent = theme === 'dark' ? '🌓' : '🌒';
-}
-
-document.addEventListener('DOMContentLoaded', function() {
-    const clock = new FlipClock($('.flip-clock-container'), 30, {
-        clockFace: 'MinuteCounter',
-        countdown: true,
-        autoStart: false,
-        callbacks: {
-            stop: function() {
-            }
-        }
-    });
-
-    window.startTimer = function() {
-        clock.start();
-    };
-
-    window.stopTimer = function() {
-        clock.stop();
-    };
-
-    window.resetTimer = function(seconds = 30) {
-        clock.setTime(seconds);
-        clock.stop();
-    };
-});
 
 window.onload = function() {
     initModal();
