@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/png" href="images/loga.png">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/flipclock/0.7.8/flipclock.min.css">
+    <link href="style.css" rel="stylesheet">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/flipclock/0.7.8/flipclock.min.js"></script>
+    <script src="script1.js" type="text/javascript"></script>
+    <script src="script2.js" type="text/javascript"></script>
+    <script src="script3.js" type="text/javascript"></script>
+    <title>Викторина</title>
+</head>
+<body>
+    <div class="background-pattern"></div>
+    <button id="theme-toggle" class="theme-toggle">🌓</button>
+    <div id="area">
+        <h1 class="game-title">Викторина</h1>
+        <div class="divider">
+            <div class="divider-line"></div>
+            <div class="divider-icon">✻</div>
+            <div class="divider-line"></div>
+        </div>
+        <div class="button-container">
+            <button id="start" class="button">
+                <span class="icon">▶</span> Начать игру
+            </button>
+            <button id="rules" class="button">
+                <span class="icon">?</span> Правила
+            </button>
+        </div>
+        <div class="categories-container" style="display: фnone;">
+            <button class="category-button button">
+                <span class="icon"></span> Линейная алгебра
+            </button>
+            <button class="category-button button">
+                <span class="icon"></span> Мат. анализ
+            </button>
+            <button class="category-button button">
+                <span class="icon"></span> Python
+            </button>
+        </div>
+    </div>
+    </div>
+    <div id="rules-mod" class="modal">
+        <div class="modal-content">
+            <span class="close-rules">&times;</span>
+            <h2>Правила игры</h2>
+            <div class="rules-text">
+                <p>1. Выбери желаемую категорию вопросов.</p>
+                <p>2. На каждый вопрос даётся 30 секунд.</p>
+                <p>3. За каждый правильный ответ ты получаешь по 1 баллу.</p>
+                <p>Удачи!</p>
+            </div>
+        </div>
+        <div class="flip-clock-container"></div>
+</body>
+</html>
